@@ -8,6 +8,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Root endpoint (Fixes "Cannot GET /")
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "online",
+    message: "Palpluss STK Push API is running"
+  });
+});
+
+// STK Push Endpoint
 app.post("/api/stkpush", async (req, res) => {
   const { phone, amount, accountReference, transactionDesc } = req.body;
 
@@ -15,7 +24,6 @@ app.post("/api/stkpush", async (req, res) => {
     return res.status(400).json({ success: false, message: "Phone number is required." });
   }
 
-  // Format phone to 07XXXXXXXX or 01XXXXXXXX if needed by Palpluss
   let formattedPhone = phone.trim();
   if (formattedPhone.startsWith("254")) {
     formattedPhone = "0" + formattedPhone.slice(3);
@@ -54,6 +62,7 @@ app.post("/api/stkpush", async (req, res) => {
   }
 });
 
+// Webhook endpoint
 app.post("/webhooks/mpesa", (req, res) => {
   console.log("Palpluss M-Pesa Callback:", JSON.stringify(req.body, null, 2));
   res.status(200).json({ status: "success" });
