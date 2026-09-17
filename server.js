@@ -8,7 +8,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Root endpoint (Fixes "Cannot GET /")
+// Helper function to format phone numbers to 07XXXXXXXX or 01XXXXXXXX
+function formatLocalPhone(phone) {
+  let cleaned = String(phone).replace(/\D/g, ""); // Remove non-digits
+
+  if (cleaned.startsWith("254")) {
+    cleaned = "0" + cleaned.slice(3);
+  } else if (cleaned.length === 9 && (cleaned.startsWith("7") || cleaned.startsWith("1"))) {
+    cleaned = "0" + cleaned;
+  }
+  return cleaned;
+}
+
+// Root health check endpoint
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "online",
@@ -24,12 +36,21 @@ app.post("/api/stkpush", async (req, res) => {
     return res.status(400).json({ success: false, message: "Phone number is required." });
   }
 
-  let formattedPhone = phone.trim();
-  if (formattedPhone.startsWith("254")) {
-    formattedPhone = "0" + formattedPhone.slice(3);
-  } else if (formattedPhone.startsWith("+254")) {
-    formattedPhone = "0" + formattedPhone.slice(4);
+  // Ensure environment variables are set
+  if (!process.env.PALPLUSS_BASIC_AUTH || !process.env.CHANNEL_ID) {
+    console.error("Missing PALPLUSS_BASIC_AUTH or CHANNEL_ID in environment variables.");
+    return res.status(500).json({
+      success: false,
+      message: "Server environment misconfiguration."
+    });
   }
+
+  const formattedPhone = formatLocalPhone(phone);
+
+  // Safely format basic auth header
+  const authHeader = process.env.PALPLUSS_BASIC_AUTH.startsWith("Basic ")
+    ? process.env.PALPLUSS_BASIC_AUTH
+    : `Basic ${process.env.PALPLUSS_BASIC_AUTH}`;
 
   const payload = {
     amount: Number(amount) || 1000,
@@ -37,13 +58,13 @@ app.post("/api/stkpush", async (req, res) => {
     accountReference: accountReference || "INV-2024-001",
     transactionDesc: transactionDesc || "Payment for invoice",
     channelId: process.env.CHANNEL_ID,
-    callbackUrl: "https://" + req.headers.host + "/webhooks/mpesa"
+    callbackUrl: `https://${req.headers.host}/webhooks/mpesa`
   };
 
   try {
     const response = await axios.post("https://api.palpluss.com/v1/payments/stk", payload, {
       headers: {
-        "Authorization": process.env.PALPLUSS_BASIC_AUTH,
+        Authorization: authHeader,
         "Content-Type": "application/json"
       }
     });
