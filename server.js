@@ -8,9 +8,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Helper function to format phone numbers to 07XXXXXXXX or 01XXXXXXXX
 function formatLocalPhone(phone) {
-  let cleaned = String(phone).replace(/\D/g, ""); // Remove non-digits
+  let cleaned = String(phone).replace(/\D/g, "");
 
   if (cleaned.startsWith("254")) {
     cleaned = "0" + cleaned.slice(3);
@@ -20,7 +19,6 @@ function formatLocalPhone(phone) {
   return cleaned;
 }
 
-// Root health check endpoint
 app.get("/", (req, res) => {
   res.status(200).json({
     status: "online",
@@ -28,7 +26,6 @@ app.get("/", (req, res) => {
   });
 });
 
-// STK Push Endpoint
 app.post("/api/stkpush", async (req, res) => {
   const { phone, amount, accountReference, transactionDesc } = req.body;
 
@@ -36,9 +33,8 @@ app.post("/api/stkpush", async (req, res) => {
     return res.status(400).json({ success: false, message: "Phone number is required." });
   }
 
-  // Ensure environment variables are set
-  if (!process.env.PALPLUSS_BASIC_AUTH || !process.env.CHANNEL_ID) {
-    console.error("Missing PALPLUSS_BASIC_AUTH or CHANNEL_ID in environment variables.");
+  if (!process.env.PALPLUSS_API_KEY || !process.env.CHANNEL_ID) {
+    console.error("Missing PALPLUSS_API_KEY or CHANNEL_ID in environment variables.");
     return res.status(500).json({
       success: false,
       message: "Server environment misconfiguration."
@@ -47,10 +43,8 @@ app.post("/api/stkpush", async (req, res) => {
 
   const formattedPhone = formatLocalPhone(phone);
 
-  // Safely format basic auth header
-  const authHeader = process.env.PALPLUSS_BASIC_AUTH.startsWith("Basic ")
-    ? process.env.PALPLUSS_BASIC_AUTH
-    : `Basic ${process.env.PALPLUSS_BASIC_AUTH}`;
+  // Encode $PALPLUSS_API_KEY: into Base64 to match curl -u "$PALPLUSS_API_KEY:"
+  const authHeader = `Basic ${Buffer.from(`${process.env.PALPLUSS_API_KEY}:`).toString("base64")}`;
 
   const payload = {
     amount: Number(amount) || 1000,
@@ -83,7 +77,6 @@ app.post("/api/stkpush", async (req, res) => {
   }
 });
 
-// Webhook endpoint
 app.post("/webhooks/mpesa", (req, res) => {
   console.log("Palpluss M-Pesa Callback:", JSON.stringify(req.body, null, 2));
   res.status(200).json({ status: "success" });
