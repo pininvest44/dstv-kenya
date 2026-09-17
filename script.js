@@ -1,7 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // Assumes form with ID 'stk-form' and first input field for phone
   const stkForm = document.getElementById("stk-form");
-  
+
+  // Guard clause to prevent script crash if the form isn't present
+  if (!stkForm) return;
+
   stkForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -19,8 +21,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     try {
-      // Replace with your live Render backend URL after deployment
-      const BACKEND_URL = "https://dstv-kenya.onrender.com";
+      // Append the specific API endpoint route to your Render service
+      const BACKEND_URL = "https://dstv-kenya.onrender.com/api/stkpush";
 
       const response = await fetch(BACKEND_URL, {
         method: "POST",
@@ -40,7 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (response.ok && data.success) {
         alert("STK Push sent! Please check your phone to enter M-Pesa PIN.");
       } else {
-        alert(`Payment failed: ${data.message || JSON.stringify(data.error)}`);
+        alert(`Payment failed: ${data.message || JSON.stringify(data.error || "Unknown error")}`);
       }
     } catch (error) {
       console.error("STK Push Request Error:", error);
