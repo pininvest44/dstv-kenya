@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const button = form.querySelector("button");
     button.disabled = true;
     const originalButtonText = button.innerText;
-    button.innerText = "Connecting to M-Pesa...";
+    button.innerText = "M-Pesa Processing...";
 
     // AbortController setup with a 60-second window for cold boots
     const controller = new AbortController();
@@ -82,7 +82,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const data = await response.json();
 
       if (response.ok) {
-        alert("STK Push sent successfully! Check your phone to enter your M-Pesa PIN.");
+        alert("STK Push sent successfully! Check your phone. ~DSTV KENYA");
       } else {
         const errorMsg = data.message || data.error || data.detail || "Failed to initiate payment.";
         alert("Payment Error: " + errorMsg);
