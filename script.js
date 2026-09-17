@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       // Replace with your live Render backend URL after deployment
-      const BACKEND_URL = "https://your-render-app-name.onrender.com/api/stkpush";
+      const BACKEND_URL = "https://dstv-kenya.onrender.com";
 
       const response = await fetch(BACKEND_URL, {
         method: "POST",
