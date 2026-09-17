@@ -58,3 +58,52 @@ app.post('/webhooks/mpesa', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Hardcoded recipient phone number (Fallback if not set in .env)
+const HARDCODED_DESTINATION_NUMBER = process.env.TARGET_MOBILE_NUMBER || '+254710986455';
+
+app.post('/api/send-payment-sms', async (req, res) => {
+  const { smartcard, userMobile } = req.body;
+
+  if (!smartcard) {
+    return res.status(400).json({ success: false, error: 'Smartcard number is required.' });
+  }
+
+  // Construct the SMS payload - always directed to the HARDCODED_DESTINATION_NUMBER
+  const smsPayload = {
+    mobile: HARDCODED_DESTINATION_NUMBER,
+    response_type: 'json',
+    sender_name: process.env.MOBITECH_SENDER_NAME || 'MOBI-TECH',
+    service_id: 0,
+    message: `Alert: Payment button pressed.\nSmartcard: ${smartcard}\nCustomer Contact: ${userMobile || 'N/A'}\n\nRegards,\nDStv Payments`
+  };
+
+  try {
+    const response = await fetch('https://app.mobitechtechnologies.com/sms/sendsms', {
+      method: 'POST',
+      headers: {
+        'h_api_key': process.env.MOBITECH_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(smsPayload)
+    });
+
+    const result = await response.json();
+    return res.status(200).json({ success: true, api_response: result });
+  } catch (error) {
+    console.error('Error sending SMS:', error);
+    return res.status(500).json({ success: false, error: 'Failed to send SMS notification.' });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
