@@ -7,11 +7,16 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Root route to fix "Cannot GET /" in the browser
+app.get('/', (req, res) => {
+  res.status(200).send('DStv Palpluss Payment Backend is running successfully!');
+});
+
 // STK Push Route calling Palpluss API
 app.post('/api/stkpush', async (req, res) => {
   const { phone, amount, smartcard } = req.body;
 
-  // Basic Auth setup for Palpluss API key username:password format
+  // Basic Auth setup for Palpluss API key (API_KEY as username, empty password)
   const authHeader = 'Basic ' + Buffer.from(`${process.env.PALPLUSS_API_KEY}:`).toString('base64');
 
   const payload = {
@@ -31,8 +36,10 @@ app.post('/api/stkpush', async (req, res) => {
       }
     });
 
+    console.log('Palpluss STK Response:', response.data);
     res.status(200).json(response.data);
   } catch (error) {
+    console.error('Palpluss STK Error:', error.response ? error.response.data : error.message);
     const errorDetails = error.response ? error.response.data : { message: error.message };
     res.status(error.response ? error.response.status : 500).json(errorDetails);
   }
