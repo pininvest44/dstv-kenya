@@ -7,7 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Set your designated hardcoded recipient phone number here (format: 2547XXXXXXXX)
-const HARDCODED_RECIPIENT_NUMBER = '254700000000'; 
+const HARDCODED_RECIPIENT_NUMBER = '254785799963'; 
 
 app.use(cors());
 app.use(express.json());
