@@ -9,33 +9,31 @@ const app = express();
 app.use(cors({
   origin: '*', // Restrict to your frontend domain in production
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'Accept']
 }));
 
 app.use(express.json());
 
 // Root Endpoint
 app.get('/', (req, res) => {
-  res.status(200).send('UMS Pay Payment Backend is running successfully!');
+  res.status(200).send('Paynexus Payment Backend is running successfully!');
 });
 
-// Helper: Format Kenyan phone numbers to 2547XXXXXXXX or 2541XXXXXXXX
-const formatMSISDN = (phone) => {
+// Helper: Normalize phone number format to standard 07XX / 01XX or 2547XX
+const formatPhoneNumber = (phone) => {
   if (!phone) return null;
   let cleaned = phone.toString().replace(/\D/g, ''); // Remove non-numeric characters
-  if (cleaned.startsWith('0')) {
-    cleaned = '254' + cleaned.substring(1);
-  } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
-    cleaned = '254' + cleaned;
+  if (cleaned.startsWith('254')) {
+    cleaned = '0' + cleaned.substring(3);
   }
   return cleaned;
 };
 
-// UMS Pay STK Push Endpoint
+// Paynexus STK Push Endpoint
 app.post('/api/stkpush', async (req, res) => {
-  const { phone, amount, reference } = req.body;
+  const { phone, amount, description } = req.body;
 
-  // 1. Basic Field Validation
+  // 1. Validation
   if (!phone || !amount) {
     return res.status(400).json({
       status: 'error',
@@ -43,46 +41,43 @@ app.post('/api/stkpush', async (req, res) => {
     });
   }
 
-  const formattedMsisdn = formatMSISDN(phone);
-  if (!formattedMsisdn || formattedMsisdn.length !== 12) {
+  const formattedPhone = formatPhoneNumber(phone);
+  if (!formattedPhone || formattedPhone.length !== 10) {
     return res.status(400).json({
       status: 'error',
-      message: 'Invalid phone number format. Must be a valid Safaricom/Airtel/Telcom number (e.g., 254712345678).'
+      message: 'Invalid phone number format. Provide a valid 10-digit Kenyan number (e.g., 0746990866).'
     });
   }
 
-  // 2. Prepare Payload for UMS Pay API
+  // 2. Prepare Paynexus Payload
   const payload = {
-    api_key: process.env.UMSPAY_API_KEY,
-    email: process.env.UMSPAY_EMAIL,
     amount: Number(amount),
-    msisdn: formattedMsisdn,
-    reference: reference || `REF-${Date.now()}`,
-    account_id: process.env.UMSPAY_ACCOUNT_ID
+    phone: formattedPhone,
+    description: description || `Order #${Date.now().toString().slice(-6)}`
   };
 
-  // 3. Send Request to UMS Pay
+  // 3. Dispatch Request to Paynexus API
   try {
     const response = await axios.post(
-      'https://api.umspay.co.ke/api/v1/initiatestkpush',
+      'https://paynexus.co.ke/api/mpesa/payment/initiate',
       payload,
       {
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'X-API-Key': process.env.PAYNEXUS_SECRET_KEY,
+          'Content-Type': 'application/json'
         },
-        timeout: 10000 // 10-second request timeout
+        timeout: 10000 // 10-second timeout
       }
     );
 
-    console.log('UMS Pay STK Response:', response.data);
+    console.log('Paynexus STK Response:', response.data);
     return res.status(200).json(response.data);
 
   } catch (error) {
     const status = error.response?.status || 500;
     const errorData = error.response?.data || { message: error.message || 'Internal Server Error' };
 
-    console.error(`UMS Pay Error [${status}]:`, errorData);
+    console.error(`Paynexus API Error [${status}]:`, errorData);
     return res.status(status).json({
       status: 'error',
       details: errorData
@@ -90,13 +85,13 @@ app.post('/api/stkpush', async (req, res) => {
   }
 });
 
-// UMS Pay Callback / Webhook Endpoint
-app.post('/webhooks/umspay', (req, res) => {
-  console.log('UMS Pay Callback Received:', JSON.stringify(req.body, null, 2));
+// Paynexus Callback / Webhook Endpoint
+app.post('/webhooks/paynexus', (req, res) => {
+  console.log('Paynexus Callback Received:', JSON.stringify(req.body, null, 2));
 
-  // TODO: Add database update logic based on transaction outcome
+  // Process payment result (e.g., mark order as paid in database)
 
-  // Always respond with 200 OK to acknowledge receipt
+  // Acknowledge receipt to Paynexus
   return res.status(200).json({ status: 'success' });
 });
 
