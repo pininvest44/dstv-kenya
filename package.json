@@ -1,7 +1,7 @@
 {
-  "name": "umspay-payment-backend",
+  "name": "paynexus-payment-backend",
   "version": "1.0.0",
-  "description": "Express backend server for UMS Pay M-Pesa STK Push integration",
+  "description": "Express backend server for Paynexus M-Pesa payment integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,7 +9,7 @@
   },
   "keywords": [
     "express",
-    "umspay",
+    "paynexus",
     "mpesa",
     "stk-push",
     "payments",
