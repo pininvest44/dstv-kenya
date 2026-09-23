@@ -5,56 +5,96 @@ require('dotenv').config();
 
 const app = express();
 
-// Explicit CORS middleware configuration
+// CORS Middleware
 app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
+  origin: '*', // Restrict to your frontend domain in production
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'Accept']
 }));
 
 app.use(express.json());
 
-// Root endpoint check
+// Root Endpoint
 app.get('/', (req, res) => {
-  res.status(200).send('DStv Palpluss Payment Backend is running successfully!');
+  res.status(200).send('Paynexus Payment Backend is running successfully!');
 });
 
-// STK Push Endpoint
+// Helper: Normalize phone number format to standard 07XX / 01XX or 2547XX
+const formatPhoneNumber = (phone) => {
+  if (!phone) return null;
+  let cleaned = phone.toString().replace(/\D/g, ''); // Remove non-numeric characters
+  if (cleaned.startsWith('254')) {
+    cleaned = '0' + cleaned.substring(3);
+  }
+  return cleaned;
+};
+
+// Paynexus STK Push Endpoint
 app.post('/api/stkpush', async (req, res) => {
-  const { phone, amount, smartcard } = req.body;
+  const { phone, amount, description } = req.body;
 
-  const authHeader = 'Basic ' + Buffer.from(`${process.env.PALPLUSS_API_KEY}:`).toString('base64');
+  // 1. Validation
+  if (!phone || !amount) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Both "phone" and "amount" fields are required.'
+    });
+  }
 
+  const formattedPhone = formatPhoneNumber(phone);
+  if (!formattedPhone || formattedPhone.length !== 10) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Invalid phone number format. Provide a valid 10-digit Kenyan number (e.g., 0746990866).'
+    });
+  }
+
+  // 2. Prepare Paynexus Payload
   const payload = {
-    amount: amount || 4200,
-    phone: phone,
-    accountReference: smartcard || "DSTV-PAY",
-    transactionDesc: "DStv Subscription Payment",
-    channelId: process.env.PALPLUSS_CHANNEL_ID,
-    callbackUrl: process.env.CALLBACK_URL
+    amount: Number(amount),
+    phone: formattedPhone,
+    description: description || `Order #${Date.now().toString().slice(-6)}`
   };
 
+  // 3. Dispatch Request to Paynexus API
   try {
-    const response = await axios.post('https://api.palpluss.com/v1/payments/stk', payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': authHeader
+    const response = await axios.post(
+      'https://paynexus.co.ke/api/mpesa/payment/initiate',
+      payload,
+      {
+        headers: {
+          'X-API-Key': process.env.PAYNEXUS_SECRET_KEY,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000 // 10-second timeout
       }
-    });
+    );
 
-    console.log('STK Success:', response.data);
-    res.status(200).json(response.data);
+    console.log('Paynexus STK Response:', response.data);
+    return res.status(200).json(response.data);
+
   } catch (error) {
-    console.error('STK Error:', error.response ? error.response.data : error.message);
-    const errorDetails = error.response ? error.response.data : { message: error.message };
-    res.status(error.response ? error.response.status : 500).json(errorDetails);
+    const status = error.response?.status || 500;
+    const errorData = error.response?.data || { message: error.message || 'Internal Server Error' };
+
+    console.error(`Paynexus API Error [${status}]:`, errorData);
+    return res.status(status).json({
+      status: 'error',
+      details: errorData
+    });
   }
 });
 
-app.post('/webhooks/mpesa', (req, res) => {
-  console.log('Palpluss Webhook:', req.body);
-  res.status(200).json({ status: "success" });
+// Paynexus Callback / Webhook Endpoint
+app.post('/webhooks/paynexus', (req, res) => {
+  console.log('Paynexus Callback Received:', JSON.stringify(req.body, null, 2));
+
+  // Process payment result (e.g., mark order as paid in database)
+
+  // Acknowledge receipt to Paynexus
+  return res.status(200).json({ status: 'success' });
 });
 
+// Start Express Server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
