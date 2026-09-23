@@ -19,7 +19,7 @@ app.get('/', (req, res) => {
   res.status(200).send('Paynexus Payment Backend is running successfully!');
 });
 
-// Helper: Normalize phone number format to standard 07XX / 01XX or 2547XX
+// Helper: Normalize phone numbers to standard 10-digit format (e.g., 0746990866 or 01XXXXXXXX)
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
   let cleaned = phone.toString().replace(/\D/g, ''); // Remove non-numeric characters
@@ -36,7 +36,7 @@ app.post('/api/stkpush', async (req, res) => {
   // 1. Validation
   if (!phone || !amount) {
     return res.status(400).json({
-      status: 'error',
+      success: false,
       message: 'Both "phone" and "amount" fields are required.'
     });
   }
@@ -44,7 +44,7 @@ app.post('/api/stkpush', async (req, res) => {
   const formattedPhone = formatPhoneNumber(phone);
   if (!formattedPhone || formattedPhone.length !== 10) {
     return res.status(400).json({
-      status: 'error',
+      success: false,
       message: 'Invalid phone number format. Provide a valid 10-digit Kenyan number (e.g., 0746990866).'
     });
   }
@@ -66,33 +66,53 @@ app.post('/api/stkpush', async (req, res) => {
           'X-API-Key': process.env.PAYNEXUS_SECRET_KEY,
           'Content-Type': 'application/json'
         },
-        timeout: 10000 // 10-second timeout
+        timeout: 15000 // Extended 15-second timeout to prevent local drops
       }
     );
 
-    console.log('Paynexus STK Response:', response.data);
-    return res.status(200).json(response.data);
+    // Debug Log: View exact payload Paynexus returns in terminal
+    console.log('Paynexus Raw Response:', JSON.stringify(response.data, null, 2));
+
+    // Handle Paynexus success structure
+    const isSuccess = response.data?.success === true || response.data?.status === 'success' || response.data?.data?.status === 'initiated';
+
+    if (isSuccess) {
+      return res.status(200).json({
+        success: true,
+        message: 'STK push prompt sent successfully.',
+        data: response.data.data || response.data
+      });
+    }
+
+    // Fallback if Paynexus explicitly responded with an unhandled state
+    return res.status(200).json({
+      success: false,
+      message: response.data?.message || 'Payment initiation failed.',
+      data: response.data
+    });
 
   } catch (error) {
     const status = error.response?.status || 500;
     const errorData = error.response?.data || { message: error.message || 'Internal Server Error' };
 
     console.error(`Paynexus API Error [${status}]:`, errorData);
+
     return res.status(status).json({
-      status: 'error',
+      success: false,
+      message: 'Failed to initiate payment',
       details: errorData
     });
   }
 });
 
-// Paynexus Callback / Webhook Endpoint
+// Paynexus Webhook / Callback Endpoint
 app.post('/webhooks/paynexus', (req, res) => {
-  console.log('Paynexus Callback Received:', JSON.stringify(req.body, null, 2));
+  console.log('Paynexus Webhook Callback:', JSON.stringify(req.body, null, 2));
 
-  // Process payment result (e.g., mark order as paid in database)
+  // Process payment confirmation here (e.g., update DB)
 
-  // Acknowledge receipt to Paynexus
-  return res.status(200).json({ status: 'success' });
+  // Acknowledge receipt to Paynexus gateway
+  return res.status(200).json({ success: true });
 });
 
 // Start Express Server
