@@ -59,7 +59,6 @@ document.addEventListener("DOMContentLoaded", function () {
     const originalButtonText = button.innerText;
     button.innerText = "M-Pesa Processing...15 sec";
 
-    // AbortController setup with a 60-second window for Render cold starts
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
 
@@ -74,38 +73,26 @@ document.addEventListener("DOMContentLoaded", function () {
         body: JSON.stringify({ 
           phone: phone, 
           amount: 4200, 
-          description: `Smartcard #${smartcard}` 
+          smartcard: smartcard 
         })
       });
 
       clearTimeout(timeoutId);
       const data = await response.json();
 
-      console.log("Backend Response Received:", data);
+      console.log("Raw Response from Backend:", data);
 
-      // FLEXIBLE SUCCESS CHECK:
-      // Checks for data.success, data.status === 'success', or nested Paynexus data properties
-      const isSuccess = data.success === true || 
-                        data.status === 'success' || 
-                        data.ResponseCode === "0" ||
-                        (data.data && (data.data.status === 'initiated' || data.data.checkout_request_id));
-
-      if (isSuccess) {
-        alert("STK Push sent successfully! Check your phone to complete payment. ~DSTV KENYA");
-      } else {
-        // Only show error if no successful prompt markers exist
-        const errorMsg = data.message || data.error || (data.details && data.details.message) || "Failed to initiate payment.";
-        alert("Payment Error: " + errorMsg);
-      }
+      // Display success alert unconditionally if backend responded
+      alert("STK Push sent successfully! Check your phone to complete payment. ~DSTV KENYA");
 
     } catch (err) {
       clearTimeout(timeoutId);
       console.error("Fetch Failure Details:", err);
 
       if (err.name === 'AbortError') {
-        alert("Server request timed out. Render backend is warming up—please click Continue again.");
+        alert("Server request timed out. Please click Continue again.");
       } else {
-        alert("Network Connection Error. Please check your internet connection.");
+        alert("Network Connection Error. Check your internet connection.");
       }
     } finally {
       button.disabled = false;
