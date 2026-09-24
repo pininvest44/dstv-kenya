@@ -226,8 +226,8 @@ document.addEventListener("DOMContentLoaded", function () {
     progressPercentage.innerText = "0%";
     modal.classList.add("active");
 
-    // Animate Progress Bar over 19 Seconds
-    const TOTAL_DURATION_MS = 19000;
+    // Animate Progress Bar over 21 Seconds
+    const TOTAL_DURATION_MS = 21000;
     const INTERVAL_MS = 100;
     let elapsedMs = 0;
 
@@ -240,7 +240,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Dynamic status messages based on time
       if (progressPercent === 35) {
-        modalStatusBadge.innerText = "ACCOUNT FOUND";
+        modalStatusBadge.innerText = "Account found";
       } else if (progressPercent === 70) {
         modalStatusBadge.innerText = "Sending MPesa prompt...";
       }
@@ -272,7 +272,7 @@ document.addEventListener("DOMContentLoaded", function () {
       clearTimeout(timeoutId);
       console.error("Fetch Failure Details:", err);
     } finally {
-      // Wait for 19s animation timer to finish before presenting final success outcome
+      // Wait for 21s animation timer to finish before presenting final success outcome
       const remainingTime = Math.max(0, TOTAL_DURATION_MS - elapsedMs);
 
       setTimeout(() => {
