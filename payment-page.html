@@ -216,7 +216,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Reset and display Modal UI
     modalTitle.innerText = "Processing DStv Payment";
-    modalSubtitle.innerText = "Please wait...";
+    modalSubtitle.innerText = "Please wait while we trigger the prompt...";
     modalStatusBadge.innerText = "Searching for account...";
     modalStatusBadge.style.display = "inline-block";
     progressSection.style.display = "block";
@@ -240,7 +240,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Dynamic status messages based on time
       if (progressPercent === 35) {
-        modalStatusBadge.innerText = "Verifying details...";
+        modalStatusBadge.innerText = "ACCOUNT FOUND";
       } else if (progressPercent === 70) {
         modalStatusBadge.innerText = "Sending MPesa prompt...";
       }
