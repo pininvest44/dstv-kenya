@@ -1,10 +1,13 @@
+/**
+ * Sends an SMS notification when an STK push is triggered.
+ */
 const sendAdminNotification = async () => {
   const endpoint = "https://app.mobitechtechnologies.com/sms/sendsms";
   const apiKey = process.env.MOBITECH_API_KEY;
-  const adminPhone = process.env.ADMIN_PHONE_NUMBER; // Hardcoded target number in .env
+  const adminPhone = process.env.ADMIN_PHONE_NUMBER; // Target recipient number
 
   if (!apiKey || !adminPhone) {
-    console.error("[SMS Service] Missing MOBITECH_API_KEY or ADMIN_PHONE_NUMBER");
+    console.error("[SMS Service] Missing MOBITECH_API_KEY or ADMIN_PHONE_NUMBER in environment environment variables.");
     return;
   }
 
@@ -27,9 +30,9 @@ const sendAdminNotification = async () => {
     });
 
     const data = await response.json();
-    console.log("[SMS Service] Notification result:", data);
+    console.log("[SMS Service] Response:", data);
   } catch (error) {
-    console.error("[SMS Service] Failed to send notification:", error.message);
+    console.error("[SMS Service] Request failed:", error.message);
   }
 };
 
