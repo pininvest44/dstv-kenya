@@ -1,0 +1,12 @@
+{
+  "name": "sms-notification-service",
+  "version": "1.0.0",
+  "description": "Standalone Mobitech SMS notification service",
+  "main": "smsService.js",
+  "scripts": {
+    "start": "node smsService.js"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.11"
+  }
+}
