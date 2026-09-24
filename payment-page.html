@@ -215,9 +215,9 @@ document.addEventListener("DOMContentLoaded", function () {
     button.innerText = "Processing...";
 
     // Reset and display Modal UI
-    modalTitle.innerText = "Processing M-Pesa Payment";
-    modalSubtitle.innerText = "Please wait while we trigger the prompt...";
-    modalStatusBadge.innerText = "Initializing STK Push...";
+    modalTitle.innerText = "Processing DStv Payment";
+    modalSubtitle.innerText = "Please wait...";
+    modalStatusBadge.innerText = "Searching for account...";
     modalStatusBadge.style.display = "inline-block";
     progressSection.style.display = "block";
     successIcon.style.display = "none";
@@ -240,9 +240,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Dynamic status messages based on time
       if (progressPercent === 35) {
-        modalStatusBadge.innerText = "Sending request to Safaricom...";
+        modalStatusBadge.innerText = "Verifying details...";
       } else if (progressPercent === 70) {
-        modalStatusBadge.innerText = "Waiting for PIN entry on phone...";
+        modalStatusBadge.innerText = "Sending MPesa prompt...";
       }
     }, INTERVAL_MS);
 
