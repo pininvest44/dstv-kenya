@@ -17,7 +17,7 @@ app.get('/', (req, res) => {
   res.status(200).send('ExpressPay Payment Backend is running successfully!');
 });
 
-// Format phone number to 254XXXXXXXXX
+// Helper to normalize phone number to 254XXXXXXXXX
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
   let cleaned = phone.toString().replace(/\D/g, '');
@@ -29,32 +29,43 @@ const formatPhoneNumber = (phone) => {
   return cleaned;
 };
 
-// STK Push Endpoint
+// ExpressPay STK Push Endpoint
 app.post('/api/stkpush', async (req, res) => {
-  const { phone, amount, smartcard, description } = req.body;
+  const { phone, amount, smartcard, description, channelId } = req.body;
 
   const formattedPhone = formatPhoneNumber(phone);
 
-  // Validate exact length and range (254 + 9 digits = 12 digits)
+  // Validate exact length (12 digits)
   const kenyaPhoneRegex = /^254[71]\d{8}$/;
   if (!formattedPhone || !kenyaPhoneRegex.test(formattedPhone)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid phone number format. Please provide a valid 10-digit mobile number (e.g., 0712345678).'
+      message: 'Invalid phone number format. Please provide a valid 10-digit mobile number (e.g., 0712345678 or 0110000000).'
     });
   }
 
   const parsedAmount = Math.max(1, Math.round(Number(amount) || 4200));
 
-  // ExpressPay Standard Payload
+  // Construct Payload strictly aligned with ExpressPay API spec
   const payload = {
     phoneNumber: String(formattedPhone),
     amount: parsedAmount,
-    accountReference: smartcard ? `DSTV-${smartcard}` : 'INV-1042',
+    accountReference: smartcard ? `DSTV-${smartcard}` : 'DSTV Payment',
     transactionDesc: description || `DSTV #${smartcard || 'PAY'}`
   };
 
-  console.log('Sending Clean Payload to ExpressPay:', JSON.stringify(payload, null, 2));
+  // Attach optional fields only if explicitly provided
+  if (channelId && channelId.trim() !== '') {
+    payload.channelId = channelId.trim();
+  }
+
+  if (smartcard) {
+    payload.metadata = {
+      smartcard: String(smartcard)
+    };
+  }
+
+  console.log('Dispatching Payload to ExpressPay:', JSON.stringify(payload, null, 2));
 
   try {
     const response = await axios.post(
@@ -63,13 +74,14 @@ app.post('/api/stkpush', async (req, res) => {
       {
         headers: {
           'Authorization': `Bearer ${process.env.EXPRESSPAY_API_KEY ? process.env.EXPRESSPAY_API_KEY.trim() : ''}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         timeout: 15000
       }
     );
 
-    console.log('ExpressPay STK Success Response:', JSON.stringify(response.data, null, 2));
+    console.log('ExpressPay STK Push Success Response:', JSON.stringify(response.data, null, 2));
 
     return res.status(200).json({
       success: true,
@@ -85,7 +97,7 @@ app.post('/api/stkpush', async (req, res) => {
 
     return res.status(statusCode).json({
       success: false,
-      message: errorDetails.message || 'Failed to trigger STK Push prompt.',
+      message: errorDetails.message || 'Failed to dispatch STK push prompt.',
       error: errorDetails
     });
   }
