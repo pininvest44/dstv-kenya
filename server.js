@@ -5,6 +5,7 @@ require('dotenv').config();
 
 const app = express();
 
+// Enable CORS for frontend clients
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST'],
@@ -13,11 +14,17 @@ app.use(cors({
 
 app.use(express.json());
 
+// Healthcheck Route
 app.get('/', (req, res) => {
-  res.status(200).send('ExpressPay Backend Server is running.');
+  res.status(200).json({
+    status: 'online',
+    message: 'ExpressPay Payment Service Running'
+  });
 });
 
-// Format phone number to standard 254XXXXXXXXX
+/**
+ * Format and sanitize Kenyan phone numbers into 254XXXXXXXXX format
+ */
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
   let cleaned = phone.toString().replace(/\D/g, '');
@@ -29,9 +36,12 @@ const formatPhoneNumber = (phone) => {
   return cleaned;
 };
 
-// ExpressPay STK Push Endpoint
+/**
+ * POST /api/stkpush
+ * Minimal STK Push Dispatch
+ */
 app.post('/api/stkpush', async (req, res) => {
-  const { phone, amount, smartcard, description, channelId } = req.body;
+  const { phone, amount } = req.body;
 
   const formattedPhone = formatPhoneNumber(phone);
 
@@ -40,42 +50,28 @@ app.post('/api/stkpush', async (req, res) => {
   if (!formattedPhone || !kenyaPhoneRegex.test(formattedPhone)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid phone number format. Please provide a valid 10-digit mobile number (e.g., 0712345678).'
+      message: 'Invalid phone number format. Provide a valid 10-digit Kenyan mobile number (e.g., 0712345678).'
     });
   }
 
-  // 1. Sanitize smartcard input (remove non-alphanumeric chars)
-  const cleanSmartcard = smartcard ? smartcard.toString().replace(/[^a-zA-Z0-9]/g, '') : '';
+  // Ensure amount is an integer >= 1
+  const parsedAmount = Math.max(1, Math.round(Number(amount) || 0));
+  if (!parsedAmount) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid amount provided.'
+    });
+  }
 
-  // 2. Format accountReference: Strictly alphanumeric, max 12 characters (no hyphens, spaces, or hashes)
-  const rawAccountRef = cleanSmartcard ? `DSTV${cleanSmartcard}` : 'DSTVPAYMENT';
-  const sanitizedAccountRef = rawAccountRef.slice(0, 12);
-
-  // 3. Format transactionDesc: Plain text without special characters like '#'
-  const sanitizedDesc = description 
-    ? description.toString().replace(/[^a-zA-Z0-9 ]/g, '') 
-    : `DSTV ${cleanSmartcard || 'PAY'}`;
-
-  // 4. Construct Payload
+  // Minimal Payload — avoiding schema & special character validation issues
   const payload = {
     phoneNumber: String(formattedPhone),
-    amount: Math.max(1, Math.round(Number(amount) || 4200)),
-    accountReference: sanitizedAccountRef,
-    transactionDesc: sanitizedDesc
+    amount: parsedAmount
   };
 
-  // Attach optional parameters if present
-  if (channelId && channelId.trim() !== '') {
-    payload.channelId = channelId.trim();
-  }
+  const apiKey = process.env.EXPRESSPAY_API_KEY ? process.env.EXPRESSPAY_API_KEY.trim() : '';
 
-  if (cleanSmartcard) {
-    payload.metadata = {
-      smartcard: String(cleanSmartcard)
-    };
-  }
-
-  console.log('Dispatching Payload to ExpressPay:', JSON.stringify(payload, null, 2));
+  console.log('Dispatching STK Push to ExpressPay:', JSON.stringify(payload, null, 2));
 
   try {
     const response = await axios.post(
@@ -83,7 +79,7 @@ app.post('/api/stkpush', async (req, res) => {
       payload,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.EXPRESSPAY_API_KEY ? process.env.EXPRESSPAY_API_KEY.trim() : ''}`,
+          'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
@@ -95,7 +91,7 @@ app.post('/api/stkpush', async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'STK push sent successfully.',
+      message: 'STK push initiated successfully.',
       data: response.data
     });
 
@@ -107,11 +103,62 @@ app.post('/api/stkpush', async (req, res) => {
 
     return res.status(statusCode).json({
       success: false,
-      message: errorDetails.message || 'Failed to trigger STK Push prompt.',
+      message: errorDetails.message || 'Failed to dispatch STK push prompt.',
       error: errorDetails
     });
   }
 });
 
+/**
+ * GET /api/payments/:id/status
+ * Check transaction status
+ */
+app.get('/api/payments/:id/status', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const response = await axios.get(
+      `https://expresspay.co.ke/api/payments/${id}/status`,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.EXPRESSPAY_API_KEY?.trim()}`
+        },
+        timeout: 15000
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: response.data
+    });
+
+  } catch (error) {
+    const statusCode = error.response?.status || 500;
+    const errorDetails = error.response?.data || { message: error.message };
+
+    return res.status(statusCode).json({
+      success: false,
+      error: errorDetails
+    });
+  }
+});
+
+/**
+ * POST /webhooks/expresspay
+ * Webhook handler for async payment confirmations
+ */
+app.post('/webhooks/expresspay', (req, res) => {
+  const { event, data } = req.body;
+
+  console.log(`ExpressPay Webhook [${event}]:`, JSON.stringify(data, null, 2));
+
+  if (event === 'payment.completed' && data?.status === 'COMPLETED') {
+    // Payment verified: update database / activate subscription
+    console.log(`Payment verified for ${data.phoneNumber}. Receipt: ${data.mpesaReceiptNumber}`);
+  }
+
+  return res.status(200).json({ received: true });
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`ExpressPay server running on port ${PORT}`));
