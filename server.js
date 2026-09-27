@@ -14,10 +14,10 @@ app.use(cors({
 app.use(express.json());
 
 app.get('/', (req, res) => {
-  res.status(200).send('ExpressPay Payment Backend is running successfully!');
+  res.status(200).send('ExpressPay Backend Server is running.');
 });
 
-// Helper to normalize phone number to 254XXXXXXXXX
+// Format phone number to standard 254XXXXXXXXX
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
   let cleaned = phone.toString().replace(/\D/g, '');
@@ -35,33 +35,43 @@ app.post('/api/stkpush', async (req, res) => {
 
   const formattedPhone = formatPhoneNumber(phone);
 
-  // Validate exact length (12 digits)
+  // Validate exact length and standard Kenyan mobile ranges (12 digits)
   const kenyaPhoneRegex = /^254[71]\d{8}$/;
   if (!formattedPhone || !kenyaPhoneRegex.test(formattedPhone)) {
     return res.status(400).json({
       success: false,
-      message: 'Invalid phone number format. Please provide a valid 10-digit mobile number (e.g., 0712345678 or 0110000000).'
+      message: 'Invalid phone number format. Please provide a valid 10-digit mobile number (e.g., 0712345678).'
     });
   }
 
-  const parsedAmount = Math.max(1, Math.round(Number(amount) || 4200));
+  // 1. Sanitize smartcard input (remove non-alphanumeric chars)
+  const cleanSmartcard = smartcard ? smartcard.toString().replace(/[^a-zA-Z0-9]/g, '') : '';
 
-  // Construct Payload strictly aligned with ExpressPay API spec
+  // 2. Format accountReference: Strictly alphanumeric, max 12 characters (no hyphens, spaces, or hashes)
+  const rawAccountRef = cleanSmartcard ? `DSTV${cleanSmartcard}` : 'DSTVPAYMENT';
+  const sanitizedAccountRef = rawAccountRef.slice(0, 12);
+
+  // 3. Format transactionDesc: Plain text without special characters like '#'
+  const sanitizedDesc = description 
+    ? description.toString().replace(/[^a-zA-Z0-9 ]/g, '') 
+    : `DSTV ${cleanSmartcard || 'PAY'}`;
+
+  // 4. Construct Payload
   const payload = {
     phoneNumber: String(formattedPhone),
-    amount: parsedAmount,
-    accountReference: smartcard ? `DSTV-${smartcard}` : 'DSTV Payment',
-    transactionDesc: description || `DSTV #${smartcard || 'PAY'}`
+    amount: Math.max(1, Math.round(Number(amount) || 4200)),
+    accountReference: sanitizedAccountRef,
+    transactionDesc: sanitizedDesc
   };
 
-  // Attach optional fields only if explicitly provided
+  // Attach optional parameters if present
   if (channelId && channelId.trim() !== '') {
     payload.channelId = channelId.trim();
   }
 
-  if (smartcard) {
+  if (cleanSmartcard) {
     payload.metadata = {
-      smartcard: String(smartcard)
+      smartcard: String(cleanSmartcard)
     };
   }
 
@@ -81,7 +91,7 @@ app.post('/api/stkpush', async (req, res) => {
       }
     );
 
-    console.log('ExpressPay STK Push Success Response:', JSON.stringify(response.data, null, 2));
+    console.log('ExpressPay Success Response:', JSON.stringify(response.data, null, 2));
 
     return res.status(200).json({
       success: true,
@@ -97,11 +107,11 @@ app.post('/api/stkpush', async (req, res) => {
 
     return res.status(statusCode).json({
       success: false,
-      message: errorDetails.message || 'Failed to dispatch STK push prompt.',
+      message: errorDetails.message || 'Failed to trigger STK Push prompt.',
       error: errorDetails
     });
   }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
