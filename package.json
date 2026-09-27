@@ -1,20 +1,12 @@
 {
   "name": "expresspay-backend",
   "version": "1.0.0",
-  "description": "ExpressPay M-Pesa Integration Backend",
+  "description": "ExpressPay M-Pesa STK Push Backend Integration",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js"
   },
-  "keywords": [
-    "express",
-    "mpesa",
-    "expresspay",
-    "stk-push"
-  ],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "axios": "^1.7.9",
     "cors": "^2.8.5",
@@ -23,5 +15,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.9"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
