@@ -196,7 +196,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     phone = phone.replace(/\s+/g, '');
 
-    // Format phone to 254XXXXXXXXX standard required by ExpressPay
+    // Standardize phone format to 254XXXXXXXXX
     if (phone.startsWith("+254")) {
       phone = phone.slice(1);
     } else if (phone.startsWith("0")) {
@@ -205,9 +205,10 @@ document.addEventListener("DOMContentLoaded", function () {
       phone = "254" + phone;
     }
 
+    // Exact check for 254 + 9 digits = 12 digits total
     const kenyaPhoneRegex = /^254[71]\d{8}$/;
     if (!kenyaPhoneRegex.test(phone)) {
-      alert("Please enter a valid Safaricom phone number (e.g., 0712345678 or 254712345678).");
+      alert("Please enter a valid 10-digit Kenyan mobile number (e.g., 0712345678 or 0112345678).");
       phoneInput.focus();
       return;
     }
@@ -229,7 +230,6 @@ document.addEventListener("DOMContentLoaded", function () {
     progressPercentage.innerText = "0%";
     modal.classList.add("active");
 
-    // Animate Progress Bar over 21 Seconds
     const TOTAL_DURATION_MS = 21000;
     const INTERVAL_MS = 100;
     let elapsedMs = 0;
@@ -277,16 +277,15 @@ document.addEventListener("DOMContentLoaded", function () {
         apiSuccess = true;
       } else {
         apiSuccess = false;
-        apiMessage = data.message || data.error?.message || "Failed to send payment prompt. Please try again.";
+        apiMessage = data.message || data.error?.message || "Failed to trigger payment prompt. Please try again.";
       }
 
     } catch (err) {
       clearTimeout(timeoutId);
       console.error("Fetch Failure Details:", err);
       apiSuccess = false;
-      apiMessage = "Network error or request timeout. Please check your connection.";
+      apiMessage = "Network connection issue or request timeout. Please try again.";
     } finally {
-      // Synchronize with the 21s progress bar animation before updating UI
       const remainingTime = Math.max(0, TOTAL_DURATION_MS - elapsedMs);
 
       setTimeout(() => {
