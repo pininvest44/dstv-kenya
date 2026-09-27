@@ -17,7 +17,7 @@ app.get('/', (req, res) => {
   res.status(200).send('ExpressPay Payment Backend is running successfully!');
 });
 
-// ExpressPay supports 07..., 01..., or 2547... / 2541...
+// Format phone number to 254XXXXXXXXX
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
   let cleaned = phone.toString().replace(/\D/g, '');
@@ -27,6 +27,7 @@ const formatPhoneNumber = (phone) => {
   return cleaned;
 };
 
+// ExpressPay STK Push Route
 app.post('/api/stkpush', async (req, res) => {
   const { phone, amount, smartcard, description } = req.body;
 
@@ -39,7 +40,6 @@ app.post('/api/stkpush', async (req, res) => {
 
   const formattedPhone = formatPhoneNumber(phone);
 
-  // ExpressPay payload schema
   const payload = {
     phoneNumber: formattedPhone,
     amount: Number(amount) || 4200,
@@ -78,23 +78,22 @@ app.post('/api/stkpush', async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: errorDetails.message || 'STK Push sent to phone.',
+      message: errorDetails.message || 'STK Push request submitted.',
       details: errorDetails
     });
   }
 });
 
-// ExpressPay Webhook Handler
+// ExpressPay Webhook Route
 app.post('/webhooks/expresspay', (req, res) => {
   const { event, data } = req.body;
-  
+
   console.log(`ExpressPay Event [${event}]:`, JSON.stringify(data, null, 2));
 
   if (event === 'payment.completed' && data?.status === 'COMPLETED') {
-    // Process successful payment logic here (e.g., mark invoice paid)
-    console.log(`Payment successful for transaction: ${data.transactionId}, Receipt: ${data.mpesaReceiptNumber}`);
+    console.log(`Payment confirmed. Transaction ID: ${data.transactionId}, Receipt: ${data.mpesaReceiptNumber}`);
   } else if (event === 'payment.failed') {
-    console.log(`Payment failed/cancelled for transaction: ${data?.transactionId}`);
+    console.log(`Payment failed or cancelled for Transaction ID: ${data?.transactionId}`);
   }
 
   return res.status(200).json({ received: true });
