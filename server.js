@@ -7,7 +7,7 @@ const app = express();
 
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'GET'],
+  methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'Accept']
 }));
 
@@ -17,17 +17,19 @@ app.get('/', (req, res) => {
   res.status(200).send('ExpressPay Payment Backend is running successfully!');
 });
 
-// ExpressPay supports 07..., 01..., or 2547... / 2541...
+// Clean and format phone number to 254XXXXXXXXX
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
   let cleaned = phone.toString().replace(/\D/g, '');
   if (cleaned.startsWith('0')) {
     cleaned = '254' + cleaned.substring(1);
+  } else if (!cleaned.startsWith('254') && (cleaned.startsWith('7') || cleaned.startsWith('1'))) {
+    cleaned = '254' + cleaned;
   }
   return cleaned;
 };
 
-// 1. Initiate STK Push
+// 1. Initiate STK Push Endpoint
 app.post('/api/stkpush', async (req, res) => {
   const { phone, amount, smartcard, description } = req.body;
 
@@ -39,16 +41,22 @@ app.post('/api/stkpush', async (req, res) => {
   }
 
   const formattedPhone = formatPhoneNumber(phone);
+  const parsedAmount = Math.max(1, Math.round(Number(amount) || 4200));
 
+  // ExpressPay Strict Payload Requirements
   const payload = {
-    phoneNumber: formattedPhone,
-    amount: Number(amount) || 4200,
+    phoneNumber: String(formattedPhone),
+    amount: parsedAmount,
     accountReference: smartcard ? `DSTV-${smartcard}` : 'DSTV Payment',
-    transactionDesc: description || `Smartcard #${smartcard || 'DSTV'}`,
-    metadata: {
-      smartcard: smartcard || null
-    }
+    transactionDesc: description || `DSTV #${smartcard || 'PAY'}`
   };
+
+  // Only append metadata if smartcard is present
+  if (smartcard) {
+    payload.metadata = { smartcard: String(smartcard) };
+  }
+
+  console.log('Sending Payload to ExpressPay:', JSON.stringify(payload, null, 2));
 
   try {
     const response = await axios.post(
@@ -56,7 +64,7 @@ app.post('/api/stkpush', async (req, res) => {
       payload,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.EXPRESSPAY_API_KEY}`,
+          'Authorization': `Bearer ${process.env.EXPRESSPAY_API_KEY ? process.env.EXPRESSPAY_API_KEY.trim() : ''}`,
           'Content-Type': 'application/json'
         },
         timeout: 15000
@@ -85,7 +93,7 @@ app.post('/api/stkpush', async (req, res) => {
   }
 });
 
-// 2. Query Payment Status
+// 2. Status Query Endpoint
 app.get('/api/payments/:id/status', async (req, res) => {
   const paymentId = req.params.id;
 
@@ -94,13 +102,11 @@ app.get('/api/payments/:id/status', async (req, res) => {
       `https://expresspay.co.ke/api/payments/${paymentId}/status`,
       {
         headers: {
-          'Authorization': `Bearer ${process.env.EXPRESSPAY_API_KEY}`
+          'Authorization': `Bearer ${process.env.EXPRESSPAY_API_KEY ? process.env.EXPRESSPAY_API_KEY.trim() : ''}`
         },
         timeout: 15000
       }
     );
-
-    console.log(`ExpressPay Status Response for ${paymentId}:`, JSON.stringify(response.data, null, 2));
 
     return res.status(200).json({
       success: true,
@@ -111,26 +117,24 @@ app.get('/api/payments/:id/status', async (req, res) => {
     const statusCode = error.response?.status || 500;
     const errorDetails = error.response?.data || { message: error.message };
 
-    console.error(`ExpressPay Status Query Error [${statusCode}]:`, JSON.stringify(errorDetails, null, 2));
-
     return res.status(statusCode).json({
       success: false,
-      message: errorDetails.message || 'Failed to retrieve payment status.',
+      message: errorDetails.message || 'Failed to query transaction status.',
       error: errorDetails
     });
   }
 });
 
-// 3. Webhook Endpoint
+// 3. ExpressPay Webhook Route
 app.post('/webhooks/expresspay', (req, res) => {
   const { event, data } = req.body;
 
-  console.log(`ExpressPay Webhook Event [${event}]:`, JSON.stringify(data, null, 2));
+  console.log(`ExpressPay Event [${event}]:`, JSON.stringify(data, null, 2));
 
   if (event === 'payment.completed' && data?.status === 'COMPLETED') {
-    console.log(`Payment confirmed: ID ${data.transactionId}, Receipt: ${data.mpesaReceiptNumber}`);
+    console.log(`Payment successful: ${data.transactionId}, Receipt: ${data.mpesaReceiptNumber}`);
   } else if (event === 'payment.failed') {
-    console.log(`Payment failed/cancelled: ID ${data?.transactionId}`);
+    console.log(`Payment failed: ${data?.transactionId}`);
   }
 
   return res.status(200).json({ received: true });
