@@ -1,29 +1,28 @@
 {
-  "name": "paynexus-payment-backend",
+  "name": "expresspay-backend",
   "version": "1.0.0",
-  "description": "Express backend server for Paynexus M-Pesa payment integration",
-  "main": "server.js",
+  "description": "ExpressPay M-Pesa STK Push Backend",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "keywords": [
     "express",
-    "paynexus",
     "mpesa",
+    "expresspay",
     "stk-push",
-    "payments",
-    "kenya"
+    "payments"
   ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "axios": "^1.7.0",
+    "axios": "^1.7.9",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2"
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.9"
   }
 }
