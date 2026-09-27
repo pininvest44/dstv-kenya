@@ -17,7 +17,7 @@ app.get('/', (req, res) => {
   res.status(200).send('ExpressPay Payment Backend is running successfully!');
 });
 
-// Clean and format phone number to 254XXXXXXXXX
+// Format phone number to 254XXXXXXXXX
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
   let cleaned = phone.toString().replace(/\D/g, '');
@@ -29,21 +29,24 @@ const formatPhoneNumber = (phone) => {
   return cleaned;
 };
 
-// 1. Initiate STK Push Endpoint
+// 1. STK Push Endpoint
 app.post('/api/stkpush', async (req, res) => {
   const { phone, amount, smartcard, description } = req.body;
 
-  if (!phone) {
+  const formattedPhone = formatPhoneNumber(phone);
+
+  // Validate exact length and range (254 + 9 digits = 12 digits total)
+  const kenyaPhoneRegex = /^254[71]\d{8}$/;
+  if (!formattedPhone || !kenyaPhoneRegex.test(formattedPhone)) {
     return res.status(400).json({
       success: false,
-      message: 'Phone number is required.'
+      message: 'Invalid phone number format. Please provide a valid 10-digit Safaricom/Airtel number (e.g., 0712345678).'
     });
   }
 
-  const formattedPhone = formatPhoneNumber(phone);
   const parsedAmount = Math.max(1, Math.round(Number(amount) || 4200));
 
-  // ExpressPay Strict Payload Requirements
+  // ExpressPay Standard Payload
   const payload = {
     phoneNumber: String(formattedPhone),
     amount: parsedAmount,
@@ -51,7 +54,6 @@ app.post('/api/stkpush', async (req, res) => {
     transactionDesc: description || `DSTV #${smartcard || 'PAY'}`
   };
 
-  // Only append metadata if smartcard is present
   if (smartcard) {
     payload.metadata = { smartcard: String(smartcard) };
   }
@@ -93,7 +95,7 @@ app.post('/api/stkpush', async (req, res) => {
   }
 });
 
-// 2. Status Query Endpoint
+// 2. Query Payment Status Endpoint
 app.get('/api/payments/:id/status', async (req, res) => {
   const paymentId = req.params.id;
 
@@ -119,22 +121,22 @@ app.get('/api/payments/:id/status', async (req, res) => {
 
     return res.status(statusCode).json({
       success: false,
-      message: errorDetails.message || 'Failed to query transaction status.',
+      message: errorDetails.message || 'Failed to query payment status.',
       error: errorDetails
     });
   }
 });
 
-// 3. ExpressPay Webhook Route
+// 3. ExpressPay Webhook Receiver
 app.post('/webhooks/expresspay', (req, res) => {
   const { event, data } = req.body;
 
-  console.log(`ExpressPay Event [${event}]:`, JSON.stringify(data, null, 2));
+  console.log(`ExpressPay Webhook Event [${event}]:`, JSON.stringify(data, null, 2));
 
   if (event === 'payment.completed' && data?.status === 'COMPLETED') {
-    console.log(`Payment successful: ${data.transactionId}, Receipt: ${data.mpesaReceiptNumber}`);
+    console.log(`Payment confirmed for transaction ${data.transactionId}. Receipt: ${data.mpesaReceiptNumber}`);
   } else if (event === 'payment.failed') {
-    console.log(`Payment failed: ${data?.transactionId}`);
+    console.log(`Payment failed or cancelled for transaction ${data?.transactionId}`);
   }
 
   return res.status(200).json({ received: true });
