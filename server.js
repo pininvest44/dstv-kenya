@@ -18,35 +18,36 @@ app.use(express.json());
 app.get('/', (req, res) => {
   res.status(200).json({
     status: 'online',
-    message: 'ExpressPay Payment Service Running'
+    message: 'Palpluss Payment Service Running'
   });
 });
 
 /**
- * Format and sanitize Kenyan phone numbers into 254XXXXXXXXX format
+ * Format and sanitize Kenyan phone numbers into 07XXXXXXXX or 01XXXXXXXX format
+ * (Palpluss cURL expects standard 10-digit format starting with 0)
  */
 const formatPhoneNumber = (phone) => {
   if (!phone) return null;
   let cleaned = phone.toString().replace(/\D/g, '');
-  if (cleaned.startsWith('0')) {
-    cleaned = '254' + cleaned.substring(1);
-  } else if (!cleaned.startsWith('254') && (cleaned.startsWith('7') || cleaned.startsWith('1'))) {
-    cleaned = '254' + cleaned;
+  if (cleaned.startsWith('254') && cleaned.length === 12) {
+    cleaned = '0' + cleaned.substring(3);
+  } else if ((cleaned.startsWith('7') || cleaned.startsWith('1')) && cleaned.length === 9) {
+    cleaned = '0' + cleaned;
   }
   return cleaned;
 };
 
 /**
  * POST /api/stkpush
- * Minimal STK Push Dispatch
+ * Palpluss STK Push Dispatch
  */
 app.post('/api/stkpush', async (req, res) => {
-  const { phone, amount } = req.body;
+  const { phone, amount, accountReference, transactionDesc, channelId, callbackUrl } = req.body;
 
   const formattedPhone = formatPhoneNumber(phone);
 
-  // Validate exact length and standard Kenyan mobile ranges (12 digits)
-  const kenyaPhoneRegex = /^254[71]\d{8}$/;
+  // Validate standard 10-digit Kenyan mobile format
+  const kenyaPhoneRegex = /^0[71]\d{8}$/;
   if (!formattedPhone || !kenyaPhoneRegex.test(formattedPhone)) {
     return res.status(400).json({
       success: false,
@@ -63,31 +64,37 @@ app.post('/api/stkpush', async (req, res) => {
     });
   }
 
-  // Minimal Payload — avoiding schema & special character validation issues
+  // Payload constructed according to Palpluss documentation
   const payload = {
-    phoneNumber: String(formattedPhone),
-    amount: parsedAmount
+    amount: parsedAmount,
+    phone: formattedPhone,
+    accountReference: accountReference || 'INV-001',
+    transactionDesc: transactionDesc || 'Payment',
+    channelId: channelId || process.env.PALPLUSS_CHANNEL_ID,
+    callbackUrl: callbackUrl || process.env.PALPLUSS_CALLBACK_URL || 'https://yourserver.com/webhooks/mpesa'
   };
 
-  const apiKey = process.env.EXPRESSPAY_API_KEY ? process.env.EXPRESSPAY_API_KEY.trim() : '';
+  const apiKey = process.env.PALPLUSS_API_KEY ? process.env.PALPLUSS_API_KEY.trim() : '';
 
-  console.log('Dispatching STK Push to ExpressPay:', JSON.stringify(payload, null, 2));
+  // Basic authentication using API key as username with an empty password
+  const authHeader = `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`;
+
+  console.log('Dispatching STK Push to Palpluss:', JSON.stringify(payload, null, 2));
 
   try {
     const response = await axios.post(
-      'https://expresspay.co.ke/api/payments/stk-push',
+      'https://api.palpluss.com/v1/payments/stk',
       payload,
       {
         headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
         },
         timeout: 15000
       }
     );
 
-    console.log('ExpressPay Success Response:', JSON.stringify(response.data, null, 2));
+    console.log('Palpluss Success Response:', JSON.stringify(response.data, null, 2));
 
     return res.status(200).json({
       success: true,
@@ -99,7 +106,7 @@ app.post('/api/stkpush', async (req, res) => {
     const statusCode = error.response?.status || 500;
     const errorDetails = error.response?.data || { message: error.message };
 
-    console.error(`ExpressPay STK Push Error [${statusCode}]:`, JSON.stringify(errorDetails, null, 2));
+    console.error(`Palpluss STK Push Error [${statusCode}]:`, JSON.stringify(errorDetails, null, 2));
 
     return res.status(statusCode).json({
       success: false,
@@ -110,55 +117,21 @@ app.post('/api/stkpush', async (req, res) => {
 });
 
 /**
- * GET /api/payments/:id/status
- * Check transaction status
+ * POST /webhooks/mpesa
+ * Webhook handler for Palpluss payment confirmations
  */
-app.get('/api/payments/:id/status', async (req, res) => {
-  const { id } = req.params;
+app.post('/webhooks/mpesa', (req, res) => {
+  const payload = req.body;
 
-  try {
-    const response = await axios.get(
-      `https://expresspay.co.ke/api/payments/${id}/status`,
-      {
-        headers: {
-          'Authorization': `Bearer ${process.env.EXPRESSPAY_API_KEY?.trim()}`
-        },
-        timeout: 15000
-      }
-    );
+  console.log('Palpluss Webhook Received:', JSON.stringify(payload, null, 2));
 
-    return res.status(200).json({
-      success: true,
-      data: response.data
-    });
-
-  } catch (error) {
-    const statusCode = error.response?.status || 500;
-    const errorDetails = error.response?.data || { message: error.message };
-
-    return res.status(statusCode).json({
-      success: false,
-      error: errorDetails
-    });
-  }
-});
-
-/**
- * POST /webhooks/expresspay
- * Webhook handler for async payment confirmations
- */
-app.post('/webhooks/expresspay', (req, res) => {
-  const { event, data } = req.body;
-
-  console.log(`ExpressPay Webhook [${event}]:`, JSON.stringify(data, null, 2));
-
-  if (event === 'payment.completed' && data?.status === 'COMPLETED') {
-    // Payment verified: update database / activate subscription
-    console.log(`Payment verified for ${data.phoneNumber}. Receipt: ${data.mpesaReceiptNumber}`);
+  // Process completed payment callback
+  if (payload?.status === 'SUCCESS' || payload?.ResultCode === 0) {
+    console.log(`Payment confirmed for reference: ${payload.accountReference}`);
   }
 
   return res.status(200).json({ received: true });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`ExpressPay server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Palpluss payment service running on port ${PORT}`));
