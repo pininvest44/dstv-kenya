@@ -23,6 +23,27 @@ app.get('/', (req, res) => {
 });
 
 /**
+ * Helper function to format Authorization header into standard "Basic <token>" format.
+ * Accepts either:
+ * 1. Raw API Key / Username (converts to Base64 with empty password `key:`)
+ * 2. Already Base64-encoded token (appends "Basic " if missing)
+ * 3. Full "Basic <token>" string
+ */
+const getAuthHeader = () => {
+  const token = process.env.PAYHERO_BASIC_AUTH_TOKEN || process.env.PAYHERO_API_KEY || '';
+  const trimmed = token.trim();
+
+  if (!trimmed) return '';
+
+  if (trimmed.startsWith('Basic ')) {
+    return trimmed;
+  }
+
+  // If token is raw API key or API_KEY:API_SECRET format
+  return `Basic ${Buffer.from(trimmed.endsWith(':') ? trimmed : `${trimmed}:`).toString('base64')}`;
+};
+
+/**
  * Format and sanitize Kenyan phone numbers into 07XXXXXXXX or 01XXXXXXXX format
  */
 const formatPhoneNumber = (phone) => {
@@ -63,7 +84,7 @@ app.post('/api/stkpush', async (req, res) => {
     });
   }
 
-  // PayHero API payload structure
+  // Payload constructed for PayHero v2 payments endpoint
   const payload = {
     amount: parsedAmount,
     phone_number: formattedPhone,
@@ -74,15 +95,13 @@ app.post('/api/stkpush', async (req, res) => {
     callback_url: callback_url || process.env.PAYHERO_CALLBACK_URL || 'https://example.com/callback.php'
   };
 
-  const apiKey = process.env.PAYHERO_API_KEY ? process.env.PAYHERO_API_KEY.trim() : '';
+  const authHeader = getAuthHeader();
 
-  // Basic authentication header configuration
-  const headers = {
-    'Content-Type': 'application/json'
-  };
-
-  if (apiKey) {
-    headers['Authorization'] = apiKey.startsWith('Basic ') ? apiKey : `Basic ${Buffer.from(`${apiKey}:`).toString('base64')}`;
+  if (!authHeader) {
+    return res.status(500).json({
+      success: false,
+      message: 'Server configuration error: Basic Auth Token / API Key is missing.'
+    });
   }
 
   console.log('Dispatching Payment Request to PayHero:', JSON.stringify(payload, null, 2));
@@ -92,7 +111,10 @@ app.post('/api/stkpush', async (req, res) => {
       'https://backend.payhero.co.ke/api/v2/payments',
       payload,
       {
-        headers,
+        headers: {
+          'Authorization': authHeader,
+          'Content-Type': 'application/json'
+        },
         timeout: 15000
       }
     );
